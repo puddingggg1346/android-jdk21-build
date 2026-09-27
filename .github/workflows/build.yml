@@ -38,7 +38,14 @@ jobs:
       - name: Build Freetype
         run: |
           export TARGET=aarch64-linux-android TARGET_JDK=aarch64
-          bash buildlibs.sh
+          cd freetype-2.10.0
+          export PATH=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          ./configure --host=$TARGET --prefix=$PWD/build_android-arm64 \
+            --without-zlib --without-bzip2 --with-png=no --with-harfbuzz=no \
+            --disable-shared --enable-static
+          make -j4
+          make install
+          ls build_android-arm64/lib/
       - name: Build JDK
         run: |
           export TARGET=aarch64-linux-android TARGET_JDK=aarch64
