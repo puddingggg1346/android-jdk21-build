@@ -49,6 +49,7 @@ jobs:
       - name: Build JDK
         run: |
           export TARGET=aarch64-linux-android TARGET_JDK=aarch64
+          export JDK_DEBUG_LEVEL=release
           bash buildjdk.sh
       - name: Package
         run: |
