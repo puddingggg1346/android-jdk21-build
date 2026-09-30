@@ -45,7 +45,10 @@ jobs:
             --disable-shared --enable-static
           make -j4
           make install
-          ls build_android-arm64/lib/
+          # 手动从 .o 合成 .so（configure 需要）
+          CC=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+          $CC -shared -o build_android-arm64/lib/libfreetype.so objs/.libs/*.o -Wl,--allow-shlib-undefined
+          ls -la build_android-arm64/lib/
       - name: Build JDK
         run: |
           export TARGET=aarch64-linux-android TARGET_JDK=aarch64
