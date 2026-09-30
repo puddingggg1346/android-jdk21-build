@@ -31,6 +31,8 @@ jobs:
           find . -name "*.rej" -delete
           git apply ../android_fixes.patch || true
           cd ..
+      - name: Apply Android patches
+        run: bash scripts/apply_android_patches.sh
       - name: Fix boot JDK path
         run: |
           sed -i "s|export BOOT_JDK=.*|export BOOT_JDK=$JAVA_HOME|" buildjdk.sh
