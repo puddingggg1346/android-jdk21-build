@@ -13,7 +13,7 @@ if 'Bionic has no SysV SHM' in s:
     print("os_linux: already")
 else:
     stubs = '''
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(ANDROID)
 /* Bionic has no SysV SHM */
 #define shmget(k,s,f) (-1)
 #define shmctl(i,c,b) (-1)
@@ -56,7 +56,7 @@ else:
         elif c == '}': depth -= 1
         i += 1
     new_s = (s[:brace+1]
-             + "\n#ifdef __ANDROID__\n  /* __ANDROID_DISABLE_UPTIME__ */\n  return;\n#else\n"
+             + "\n#if defined(__ANDROID__) || defined(ANDROID)\n  /* __ANDROID_DISABLE_UPTIME__ */\n  return;\n#else\n"
              + s[brace+1:i-1]
              + "\n#endif\n"
              + s[i-1:])
@@ -75,7 +75,7 @@ if '__ANDROID_GETGR__' in s:
 else:
     ins = '''
 // __ANDROID_GETGR__
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(ANDROID)
 int getgrgid_r(gid_t gid, struct group* grp, char* buf, size_t buflen, struct group** result) {
   *result = NULL; errno = 0;
   struct group* g = getgrgid(gid);
