@@ -3,61 +3,78 @@ set -e
 cd "$(dirname "$0")/.."
 JDK=openjdk
 
-# ---- 1. os_linux.cpp: 禁用 SHM ----
+# ---- 1. os_linux.cpp: stub SysV SHM ----
 F=$JDK/src/hotspot/os/linux/os_linux.cpp
 python3 - "$F" << 'PY'
-import sys
+import sys, re
 f = sys.argv[1]
 s = open(f).read()
-
-s = s.replace(
-    "bool os::Linux::shm_hugetlbfs_sanity_check(bool warn, size_t page_size) {\n  // Try to create a large shared memory segment.",
-    "bool os::Linux::shm_hugetlbfs_sanity_check(bool warn, size_t page_size) {\n#ifdef __ANDROID__\n  return false;\n#else\n  // Try to create a large shared memory segment.", 1)
-
-s = s.replace(
-    "  shmctl(shmid, IPC_RMID, nullptr);\n  return true;\n}",
-    "  shmctl(shmid, IPC_RMID, nullptr);\n  return true;\n#endif\n}", 1)
-
-s = s.replace(
-    "char* os::Linux::reserve_memory_special_shm(size_t bytes, size_t alignment,\n                                            char* req_addr, bool exec) {",
-    "char* os::Linux::reserve_memory_special_shm(size_t bytes, size_t alignment,\n                                            char* req_addr, bool exec) {\n#ifdef __ANDROID__\n  return nullptr;\n#else", 1)
-
-s = s.replace(
-    "  shmctl(shmid, IPC_RMID, nullptr);\n\n  return addr;\n}",
-    "  shmctl(shmid, IPC_RMID, nullptr);\n\n  return addr;\n#endif\n}", 1)
-
-# shmat/shmat_at_address 附近也需包裹 — 找 reserve_memory_special_shm 之前的一个函数
-# 简单方案：全局把 shmat/shmat_at_address 用 #ifndef 包住
-open(f, "w").write(s)
-print("os_linux.cpp patched")
+if 'Bionic has no SysV SHM' in s:
+    print("os_linux: already")
+else:
+    stubs = '''
+#ifdef __ANDROID__
+/* Bionic has no SysV SHM */
+#define shmget(k,s,f) (-1)
+#define shmctl(i,c,b) (-1)
+#define shmat(i,a,f) ((void*)-1)
+#define shmdt(a) (-1)
+#define IPC_PRIVATE 0
+#define IPC_CREAT 01000
+#define IPC_RMID 0
+#define SHM_R 0400
+#define SHM_W 0200
+#define SHM_HUGETLB 04000
+#endif
+'''
+    ms = list(re.finditer(r'^#include .*$', s, re.MULTILINE))
+    last = ms[-1]
+    s = s[:last.end()] + stubs + s[last.end():]
+    open(f, "w").write(s)
+    print("os_linux: stubs inserted")
 PY
 
-# ---- 2. os_posix.cpp: 禁用 uptime ----
+# ---- 2. os_posix.cpp: guard print_uptime_info ----
 F=$JDK/src/hotspot/os/posix/os_posix.cpp
 python3 - "$F" << 'PY'
 import sys
 f = sys.argv[1]
 s = open(f).read()
-
-s = s.replace(
-    "void os::Posix::print_uptime_info(outputStream* st) {\n  int bootsec = -1;",
-    "void os::Posix::print_uptime_info(outputStream* st) {\n#ifdef __ANDROID__\n  return;\n#else\n  int bootsec = -1;", 1)
-
-s = s.replace(
-    "  if (bootsec != -1) {\n    os::print_dhm(st, \"OS uptime:\", currsec-bootsec);\n  }\n}",
-    "  if (bootsec != -1) {\n    os::print_dhm(st, \"OS uptime:\", currsec-bootsec);\n  }\n#endif\n}", 1)
-
-open(f, "w").write(s)
-print("os_posix.cpp patched")
+if '__ANDROID_DISABLE_UPTIME__' in s:
+    print("os_posix: already")
+else:
+    sig = "void os::Posix::print_uptime_info(outputStream* st)"
+    idx = s.find(sig)
+    if idx < 0:
+        print("os_posix: NOT FOUND"); sys.exit(1)
+    brace = s.find('{', idx)
+    depth = 1
+    i = brace + 1
+    while i < len(s) and depth > 0:
+        c = s[i]
+        if c == '{': depth += 1
+        elif c == '}': depth -= 1
+        i += 1
+    new_s = (s[:brace+1]
+             + "\n#ifdef __ANDROID__\n  /* __ANDROID_DISABLE_UPTIME__ */\n  return;\n#else\n"
+             + s[brace+1:i-1]
+             + "\n#endif\n"
+             + s[i-1:])
+    open(f, "w").write(new_s)
+    print("os_posix: guarded")
 PY
 
-# ---- 3. UnixNativeDispatcher.c: getgrgid_r ----
+# ---- 3. UnixNativeDispatcher.c ----
 F=$JDK/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
 python3 - "$F" << 'PY'
 import sys
 f = sys.argv[1]
 s = open(f).read()
-ins = '''
+if '__ANDROID_GETGR__' in s:
+    print("dispatch: already")
+else:
+    ins = '''
+// __ANDROID_GETGR__
 #ifdef __ANDROID__
 int getgrgid_r(gid_t gid, struct group* grp, char* buf, size_t buflen, struct group** result) {
   *result = NULL; errno = 0;
@@ -73,21 +90,18 @@ int getgrnam_r(const char* name, struct group* grp, char* buf, size_t buflen, st
 }
 #endif
 '''
-if "getgrgid_r" not in s.split("#include <grp.h>")[1][:2000]:
     s = s.replace("#include <grp.h>\n", "#include <grp.h>\n" + ins, 1)
     open(f, "w").write(s)
-    print("UnixNativeDispatcher.c patched")
-else:
-    print("already patched")
+    print("dispatch: patched")
 PY
 
-# ---- 4. configure: 删除检查 ----
+# ---- 4. configure ----
 sed -i '/if test -z "${this_script_dir}"; then/,/^fi$/d' $JDK/configure || true
 
 # ---- 5. JvmMapfile.gmk ----
 sed -i 's/ifeq ($(call isTargetOs, linux), true)/ifeq ($(call isTargetOs, android linux), true)/' $JDK/make/hotspot/lib/JvmMapfile.gmk || true
 
-echo "=== verification ==="
-grep -c "__ANDROID__" $JDK/src/hotspot/os/linux/os_linux.cpp
-grep -c "__ANDROID__" $JDK/src/hotspot/os/posix/os_posix.cpp
-grep -c "__ANDROID__" $JDK/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+echo "=== verify ==="
+grep -c "Bionic has no SysV SHM" $JDK/src/hotspot/os/linux/os_linux.cpp
+grep -c "__ANDROID_DISABLE_UPTIME__" $JDK/src/hotspot/os/posix/os_posix.cpp
+grep -c "__ANDROID_GETGR__" $JDK/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
