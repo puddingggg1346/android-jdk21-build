@@ -24,7 +24,13 @@ jobs:
           echo "ANDROID_NDK_ROOT=$PWD/android-ndk-r21e" >> $GITHUB_ENV
       - name: Get sources
         run: |
-          bash getlibs.sh
+          # 用 GitHub 镜像替代 sourceforge
+          wget -q https://github.com/freetype/freetype/archive/refs/tags/VER-2-10-0.tar.gz -O ft.tar.gz
+          tar xf ft.tar.gz
+          mv freetype-VER-2-10-0 freetype-2.10.0
+          wget -q https://github.com/apple/cups/releases/download/v2.2.4/cups-2.2.4-source.tar.gz
+          tar xf cups-2.2.4-source.tar.gz
+          rm -f ft.tar.gz cups-2.2.4-source.tar.gz
           git clone --depth 1 --branch jdk-21+35 https://github.com/openjdk/jdk.git openjdk
           cd openjdk
           git apply --reject --whitespace=fix ../patches/jdk21u_android.diff || true
