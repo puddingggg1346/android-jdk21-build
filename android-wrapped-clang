@@ -1,13 +1,7 @@
 #!/bin/bash
 if [ "$1" = "--version" ]; then
   echo "${TARGET}-gcc (GCC) 4.9 20140827 (prerelease)"
+  echo "Copyright (C) 2014 Free Software Foundation, Inc."
 else
-  case " $* " in
-    *" -shared "*|*" -o "*)
-      exec $thecc -Wno-unknown-warning-option -Wl,--unresolved-symbols=ignore-all -ldl "${@/-fno-var-tracking-assignments/}"
-      ;;
-    *)
-      exec $thecc -Wno-unknown-warning-option "${@/-fno-var-tracking-assignments/}"
-      ;;
-  esac
+  exec $thecc -Wno-unknown-warning-option "${@/-fno-var-tracking-assignments/}"
 fi

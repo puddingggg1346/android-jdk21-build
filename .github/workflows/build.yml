@@ -61,6 +61,8 @@ jobs:
           export TARGET=aarch64-linux-android TARGET_JDK=aarch64
           export JDK_DEBUG_LEVEL=release
           sed -i '/git reset --hard/d' buildjdk.sh
+          sed -i 's|export LDFLAGS+=" -L$PWD/dummy_libs"|export LDFLAGS+=" -L$PWD/dummy_libs -Wl,--unresolved-symbols=ignore-in-shared-libs -ldl"|' buildjdk.sh
+          grep LDFLAGS buildjdk.sh | head -3
           bash buildjdk.sh
       - name: Package
         run: |
