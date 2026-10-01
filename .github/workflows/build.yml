@@ -24,10 +24,10 @@ jobs:
           echo "ANDROID_NDK_ROOT=$PWD/android-ndk-r21e" >> $GITHUB_ENV
       - name: Get sources
         run: |
-          # 用 GitHub 镜像替代 sourceforge
-          wget -q https://github.com/freetype/freetype/archive/refs/tags/VER-2-10-0.tar.gz -O ft.tar.gz
+          # 用 savannah/kernel 镜像替代 sourceforge
+          wget -q https://download.savannah.gnu.org/releases/freetype/freetype-2.10.0.tar.gz -O ft.tar.gz || \
+          wget -q https://mirrors.kernel.org/sourceforge/freetype/freetype2/2.10.0/freetype-2.10.0.tar.gz -O ft.tar.gz
           tar xf ft.tar.gz
-          mv freetype-VER-2-10-0 freetype-2.10.0
           wget -q https://github.com/apple/cups/releases/download/v2.2.4/cups-2.2.4-source.tar.gz
           tar xf cups-2.2.4-source.tar.gz
           rm -f ft.tar.gz cups-2.2.4-source.tar.gz
