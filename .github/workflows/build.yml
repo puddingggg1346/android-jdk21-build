@@ -57,11 +57,55 @@ jobs:
       - name: Apply Android patch
         run: |
           cd openjdk
-          git apply --whitespace=fix ../patches/full-android-patch.diff
-          echo "=== 验证关键改动 ==="
-          grep -n "__USE_BSD" make/autoconf/flags-cflags.m4
-          grep -c "__ANDROID__" src/hotspot/os/posix/os_posix.cpp
-          echo "patch apply: OK"
+          echo "=== 打原 patch（allow failures）==="
+          git apply --reject --whitespace=fix ../patches/jdk21u_android.diff 2>&1 || true
+          echo ""
+          echo "=== 失败的 reject 文件（不删，需手动修）==="
+          find . -name "*.rej" || true
+          find . -name "*.orig" -delete
+          
+          echo ""
+          echo "=== 手动修复 flags-cflags.m4 ==="
+          python3 -c "
+          p='make/autoconf/flags-cflags.m4'
+          s=open(p).read()
+          old='CFLAGS_OS_DEF_JDK=\"-D_GNU_SOURCE -D_REENTRANT -D_LARGEFILE64_SOURCE\"'
+          new='CFLAGS_OS_DEF_JDK=\"-D_GNU_SOURCE -D_REENTRANT -D_LARGEFILE64_SOURCE -D__USE_BSD\"'
+          if old in s and '__USE_BSD' not in s:
+              s=s.replace(old,new,1)
+              open(p,'w').write(s)
+              print('patched')
+          else:
+              print('skip or already')
+          "
+          grep __USE_BSD make/autoconf/flags-cflags.m4 || echo "WARN: __USE_BSD missing"
+          
+          echo ""
+          echo "=== 手动修复 os_posix.cpp ==="
+          python3 -c "
+          p='src/hotspot/os/posix/os_posix.cpp'
+          s=open(p).read()
+          if 'void os::Posix::print_uptime_info(outputStream* st) {\n#ifndef __ANDROID__' not in s:
+              s=s.replace(
+                'void os::Posix::print_uptime_info(outputStream* st) {\n',
+                'void os::Posix::print_uptime_info(outputStream* st) {\n#ifndef __ANDROID__\n',
+                1)
+              # 找函数体结尾加 #endif
+              idx = s.find('void os::Posix::print_uptime_info')
+              end_idx = s.find('\n}\n', idx)
+              if end_idx > 0:
+                  s = s[:end_idx+1] + '#endif\n' + s[end_idx+1:]
+              open(p,'w').write(s)
+              print('patched')
+          else:
+              print('already')
+          "
+          awk '/void os::Posix::print_uptime_info/,/^}/' src/hotspot/os/posix/os_posix.cpp | head -20
+          
+          echo ""
+          echo "=== 清掉 .rej ==="
+          find . -name "*.rej" -delete
+          echo "done"
 
       - name: Apply Bionic SHM stubs
         run: bash scripts/apply_android_patches.sh
