@@ -23,54 +23,7 @@ fi
 # cp -R /usr/include/X11 $ANDROID_INCLUDE/
 # cp -R /usr/include/fontconfig $ANDROID_INCLUDE/
 
-if [ "$BUILD_IOS" != "1" ]; then
-  chmod +x android-wrapped-clang
-  chmod +x android-wrapped-clang++
-  ln -s -f /usr/include/X11 $ANDROID_INCLUDE/
-  ln -s -f /usr/include/fontconfig $ANDROID_INCLUDE/
-  platform_args="--with-toolchain-type=clang \
-    --with-freetype-include=$FREETYPE_DIR/include/freetype2 \
-    --with-freetype-lib=$FREETYPE_DIR/lib \
-    --build=x86_64-unknown-linux-gnu \
-    "
-  AUTOCONF_x11arg="--x-includes=$ANDROID_INCLUDE/X11"
-  AUTOCONF_EXTRA_ARGS+="OBJCOPY=$OBJCOPY \
-    AR=$AR \
-    STRIP=$STRIP \
-    "
-
-  export BOOT_JDK=/usr/lib/jvm/java-21-openjdk-arm64
-  export CFLAGS+=" -DANDROID"
-  export LDFLAGS+=" -L$PWD/dummy_libs" 
-
-  sudo apt -y install systemtap-sdt-dev libxtst-dev libasound2-dev libelf-dev libfontconfig1-dev libx11-dev libxext-dev libxrandr-dev libxrender-dev libxtst-dev libxt-dev
-
-# Create dummy libraries so we won't have to remove them in OpenJDK makefiles
-  mkdir -p dummy_libs
-  ar cru dummy_libs/libpthread.a
-  ar cru dummy_libs/librt.a
-  ar cru dummy_libs/libthread_db.a
-else
-  ln -s -f /opt/X11/include/X11 $ANDROID_INCLUDE/
-  ln -sfn $themacsysroot/System/Library/Frameworks/CoreAudio.framework/Headers $ANDROID_INCLUDE/CoreAudio
-  ln -sfn $themacsysroot/System/Library/Frameworks/IOKit.framework/Headers $ANDROID_INCLUDE/IOKit
-  if [ "$(uname -p)" == "arm" ]; then
-    ln -s -f /opt/homebrew/include/fontconfig $ANDROID_INCLUDE/
-  else
-    ln -s -f /usr/local/include/fontconfig $ANDROID_INCLUDE/
-  fi
-  platform_args="--with-toolchain-type=clang --with-sysroot=$(xcrun --sdk iphoneos --show-sdk-path) \
-    --with-freetype=bundled \
-    "
-  AUTOCONF_x11arg="--with-x=/opt/X11/include/X11 --prefix=/usr/lib"
-  sameflags="-arch arm64 -DHEADLESS=1 -I$PWD/ios-missing-include -Wno-implicit-function-declaration -DTARGET_OS_OSX"
-  export BOOT_JDK=$PWD/jdk-20.jdk/Contents/Home
-  export CFLAGS+=" $sameflags"
-  export LDFLAGS+="-arch arm64"
-  export BUILD_SYSROOT_CFLAGS="-isysroot ${themacsysroot}"
-
-  HOMEBREW_NO_AUTO_UPDATE=1 brew install fontconfig ldid xquartz autoconf
-fi
+: # [CI] patch already applied in workflow step
 
 # fix building libjawt
 ln -s -f $CUPS_DIR/cups $ANDROID_INCLUDE/

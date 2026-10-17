@@ -139,6 +139,7 @@ jobs:
           echo "=== patch 相关行（应全被注释）==="
           grep -n "git apply\|git reset\|\[CI\]" buildjdk_arm.sh
           echo "=== 开始编译 ==="
+          set -o pipefail
           bash buildjdk_arm.sh 2>&1 | tee /tmp/jdk-build.log
           echo "=== 编译退出码: $? ==="
 
