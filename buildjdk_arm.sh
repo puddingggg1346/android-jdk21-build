@@ -78,11 +78,11 @@ ln -s -f $CUPS_DIR/cups $ANDROID_INCLUDE/
 cd openjdk
 
 # Apply patches
-git reset --hard
+# [CI] git reset --hard 已由 workflow 前序步骤替代，跳过
 if [ "$BUILD_IOS" != "1" ]; then
-  git apply --reject --whitespace=fix ../patches/jdk21u_android.diff || echo "git apply failed (Android patch set)"
+# [CI] patch 已在 workflow Apply Android patch 步骤应用
 else
-  git apply --reject --whitespace=fix ../patches/jdk21u_ios.diff || echo "git apply failed (iOS patch set)"
+# [CI] iOS patch 跳过（非 iOS 构建）
 
   # Hack: exclude building macOS stuff
   desktop_mac=src/java.desktop/macosx

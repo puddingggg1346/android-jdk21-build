@@ -132,10 +132,23 @@ jobs:
           export TARGET=aarch64-linux-android TARGET_JDK=aarch64
           export JVM_VARIANTS=server JDK_DEBUG_LEVEL=release
           export BOOT_JDK=$JAVA_HOME
-          sed -i "/git reset --hard/d" buildjdk_arm.sh
-          sed -i 's|^export BOOT_JDK=.*|export BOOT_JDK=$JAVA_HOME|' buildjdk_arm.sh 2>/dev/null || true
-          grep -E "BOOT_JDK|TARGET_JDK" buildjdk_arm.sh | head -3
-          bash buildjdk_arm.sh
+          echo "=== BOOT_JDK=$BOOT_JDK ==="
+          sed -i 's|^export BOOT_JDK=.*|export BOOT_JDK=$JAVA_HOME|' buildjdk_arm.sh
+          echo "=== buildjdk_arm.sh 里 BOOT_JDK 行 ==="
+          grep -n "BOOT_JDK" buildjdk_arm.sh | head -3
+          echo "=== patch 相关行（应全被注释）==="
+          grep -n "git apply\|git reset\|\[CI\]" buildjdk_arm.sh
+          echo "=== 开始编译 ==="
+          bash buildjdk_arm.sh 2>&1 | tee /tmp/jdk-build.log
+          echo "=== 编译退出码: $? ==="
+
+      - name: Upload build log on fail
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jdk-build-log
+          path: /tmp/jdk-build.log
+          retention-days: 7
 
       - name: Package
         run: |
