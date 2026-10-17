@@ -1,0 +1,10 @@
+openjdk/
+android-ndk-r21e/
+android-ndk-r21e-linux-x86_64.zip
+freetype-*/
+cups-*/
+build/
+dummy_libs/
+*.log
+*.tar.gz
+*.zip

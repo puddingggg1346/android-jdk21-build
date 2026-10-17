@@ -1,0 +1,108 @@
+name: Build OpenJDK 21.0.4 for Android aarch64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -af
+          df -h /
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Install deps
+        run: |
+          sudo apt update
+          sudo apt -y install autoconf zip unzip file wget \
+            build-essential libx11-dev libxext-dev libxrender-dev libxrandr-dev \
+            libxtst-dev libxt-dev libcups2-dev libfontconfig1-dev libasound2-dev \
+            libelf-dev libfreetype6-dev libpng-dev libjpeg-dev libgif-dev \
+            systemtap-sdt-dev
+
+      - name: Download NDK r21e
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+          unzip -q android-ndk-r21e-linux-x86_64.zip
+          echo "ANDROID_NDK_ROOT=$PWD/android-ndk-r21e" >> $GITHUB_ENV
+          ls $PWD/android-ndk-r21e/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+
+      - name: Download freetype + cups
+        run: |
+          wget -q https://download.savannah.gnu.org/releases/freetype/freetype-2.10.0.tar.gz -O ft.tar.gz
+          tar xf ft.tar.gz
+          wget -q https://github.com/apple/cups/releases/download/v2.2.4/cups-2.2.4-source.tar.gz
+          tar xf cups-2.2.4-source.tar.gz
+          rm -f ft.tar.gz cups-2.2.4-source.tar.gz
+          ls -d freetype-2.10.0 cups-2.2.4
+
+      - name: Clone JDK 21.0.4
+        run: |
+          git clone --depth 1 -b jdk-21.0.4+7 https://github.com/openjdk/jdk21u.git openjdk
+          cd openjdk
+          git log -1 --oneline
+
+      - name: Apply Android patch
+        run: |
+          cd openjdk
+          git apply --whitespace=fix ../patches/full-android-patch.diff
+          echo "=== 验证关键改动 ==="
+          grep -n "__USE_BSD" make/autoconf/flags-cflags.m4
+          grep -c "__ANDROID__" src/hotspot/os/posix/os_posix.cpp
+          echo "patch apply: OK"
+
+      - name: Apply Bionic SHM stubs
+        run: bash scripts/apply_android_patches.sh
+
+      - name: Build freetype
+        run: |
+          export TARGET=aarch64-linux-android TARGET_JDK=aarch64
+          cd freetype-2.10.0
+          BIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
+          export PATH=$BIN:$PATH
+          export CC=$BIN/aarch64-linux-android21-clang
+          export CXX=$BIN/aarch64-linux-android21-clang++
+          export AR=$BIN/llvm-ar RANLIB=$BIN/llvm-ranlib STRIP=$BIN/llvm-strip
+          ./configure --host=$TARGET --prefix=$PWD/build_android-arm64 \
+            --without-zlib --without-bzip2 --with-png=no --with-harfbuzz=no \
+            --disable-shared --enable-static
+          make -j4
+          make install
+          $CC -shared -o build_android-arm64/lib/libfreetype.so objs/*.o -Wl,--allow-shlib-undefined
+          ls -la build_android-arm64/lib/
+
+      - name: Build JDK
+        run: |
+          export TARGET=aarch64-linux-android TARGET_JDK=aarch64
+          export JVM_VARIANTS=server JDK_DEBUG_LEVEL=release
+          export BOOT_JDK=$JAVA_HOME
+          sed -i "/git reset --hard/d" buildjdk_arm.sh
+          sed -i 's|^export BOOT_JDK=.*|export BOOT_JDK=$JAVA_HOME|' buildjdk_arm.sh 2>/dev/null || true
+          grep -E "BOOT_JDK|TARGET_JDK" buildjdk_arm.sh | head -3
+          bash buildjdk_arm.sh
+
+      - name: Package
+        run: |
+          IMG=$(find openjdk/build -maxdepth 4 -type d -name jdk | head -1)
+          echo "IMG=$IMG"
+          ls $IMG
+          tar czf $GITHUB_WORKSPACE/jre21-aarch64.tar.gz -C $(dirname $IMG) jdk
+          ls -lh $GITHUB_WORKSPACE/jre21-aarch64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jre21-aarch64-jdk21.0.4
+          path: jre21-aarch64.tar.gz
+          retention-days: 30
