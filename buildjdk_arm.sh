@@ -35,6 +35,7 @@ fi
 # fix building libjawt
 ln -s -f $CUPS_DIR/cups $ANDROID_INCLUDE/
 
+DUMMY_LIBS=$(pwd)/dummy_libs
 cd openjdk
 
 # Apply patches
@@ -51,8 +52,8 @@ bash ./configure \
     --with-boot-jdk=$BOOT_JDK \
     --openjdk-target=$TARGET \
     --with-extra-cflags="$CFLAGS" \
-    --with-extra-cxxflags="$CFLAGS" \
-    --with-extra-ldflags="$LDFLAGS" \
+    --with-extra-cxxflags="$CFLAGS -L$DUMMY_LIBS" \
+    --with-extra-ldflags="$LDFLAGS -L$DUMMY_LIBS" \
     --disable-precompiled-headers \
     --disable-warnings-as-errors \
     --enable-option-checking=fatal \
