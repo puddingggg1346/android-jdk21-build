@@ -32,17 +32,7 @@ cd openjdk
 
 # Apply patches
 # [CI] git reset --hard 已由 workflow 前序步骤替代，跳过
-if [ "$BUILD_IOS" != "1" ]; then
-# [CI] patch 已在 workflow Apply Android patch 步骤应用
-else
-# [CI] iOS patch 跳过（非 iOS 构建）
-
-  # Hack: exclude building macOS stuff
-  desktop_mac=src/java.desktop/macosx
-  mv ${desktop_mac} ${desktop_mac}_NOTIOS
-  mkdir -p ${desktop_mac}/native
-  mv ${desktop_mac}_NOTIOS/native/libjsound ${desktop_mac}/native/
-fi
+: # [CI] iOS hack 跳过（Android 构建不需要）
 
 # rm -rf build
 
