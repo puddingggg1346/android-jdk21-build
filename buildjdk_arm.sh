@@ -63,8 +63,8 @@ bash ./configure \
     --with-devkit=$TOOLCHAIN \
     --with-debug-level=$JDK_DEBUG_LEVEL \
     --with-fontconfig-include=$ANDROID_INCLUDE \
-    $AUTOCONF_x11arg $AUTOCONF_EXTRA_ARGS \
-    --x-libraries=/usr/lib \
+    --with-x=no \
+    $AUTOCONF_EXTRA_ARGS \
     $platform_args
 CONFIGURE_RC=$?
 if [ $CONFIGURE_RC -ne 0 ]; then
