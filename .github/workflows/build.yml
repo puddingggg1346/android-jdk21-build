@@ -173,8 +173,24 @@ jobs:
           grep -n "BOOT_JDK" buildjdk_arm.sh | head -3
           echo "=== patch 相关行（应全被注释）==="
           grep -n "git apply\|git reset\|\[CI\]" buildjdk_arm.sh
+          echo "=== 创建 dummy libs (bionic 无独立 libpthread/librt) ==="
+          mkdir -p $PWD/dummy_libs
+          ar cru $PWD/dummy_libs/libpthread.a
+          ar cru $PWD/dummy_libs/librt.a
+          ar cru $PWD/dummy_libs/libthread_db.a
+          ls -la $PWD/dummy_libs/
+
+          echo "=== 让 buildjdk_arm.sh 用绝对路径 dummy_libs ==="
+          sed -i "s|\\.\\./patches/|$PWD/patches/|g" buildjdk_arm.sh 2>/dev/null || true
+          # 在 configure 前把 dummy_libs 加入 LDFLAGS（cd openjdk 后 $PWD 会变）
+          sed -i "s|export LDFLAGS+=\" -L\$PWD/dummy_libs\"|export LDFLAGS+=\" -L$PWD/dummy_libs\"|" buildjdk_arm.sh || true
+          # 保险：在 configure 前追加
+          grep -n "dummy_libs" buildjdk_arm.sh
+
           echo "=== 开始编译 ==="
           set -o pipefail
+          # 把 dummy_libs 绝对路径塞进 CPPFLAGS 和 LDFLAGS 双保险
+          export LDFLAGS="-L$PWD/dummy_libs $LDFLAGS"
           bash buildjdk_arm.sh 2>&1 | tee /tmp/jdk-build.log
           echo "=== 编译退出码: $? ==="
 
