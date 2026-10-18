@@ -114,6 +114,18 @@ jobs:
           grep -n "NEEDS_LIB_X11" make/autoconf/libraries.m4
           
           echo ""
+          echo "=== 强制关闭所有 host 依赖检测（Android 交叉编译不需要）==="
+          # platform.m4 把 android 映射成 linux，导致 NEEDS_LIB_* 全 true
+          # 直接全部改 false，跳过 X11/fontconfig/CUPS/ALSA 的 host 依赖检测
+          sed -i 's/NEEDS_LIB_X11=true/NEEDS_LIB_X11=false/g'             make/autoconf/libraries.m4
+          sed -i 's/NEEDS_LIB_FONTCONFIG=true/NEEDS_LIB_FONTCONFIG=false/g' make/autoconf/libraries.m4
+          sed -i 's/NEEDS_LIB_CUPS=true/NEEDS_LIB_CUPS=false/g'           make/autoconf/libraries.m4
+          sed -i 's/NEEDS_LIB_ALSA=true/NEEDS_LIB_ALSA=false/g'           make/autoconf/libraries.m4
+          
+          echo "=== 验证 ==="
+          grep -nE "NEEDS_LIB_(X11|FONTCONFIG|CUPS|ALSA)" make/autoconf/libraries.m4 | grep "=true" && echo "❌ 还有 true" || echo "✅ 全部 false"
+          
+          echo ""
           echo "=== 清掉 .rej ==="
           find . -name "*.rej" -delete
           echo "done"
