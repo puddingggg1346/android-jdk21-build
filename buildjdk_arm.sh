@@ -49,6 +49,7 @@ fi
 #   --with-extra-cxxflags="$CXXFLAGS -Dchar16_t=uint16_t -Dchar32_t=uint32_t" \
 #   --with-extra-cflags="$CPPFLAGS" \
 
+set +e
 bash ./configure \
     --with-boot-jdk=$BOOT_JDK \
     --openjdk-target=$TARGET \
@@ -67,13 +68,16 @@ bash ./configure \
     --with-fontconfig-include=$ANDROID_INCLUDE \
     $AUTOCONF_x11arg $AUTOCONF_EXTRA_ARGS \
     --x-libraries=/usr/lib \
-        $platform_args || \
-error_code=$?
-if [ "$error_code" -ne 0 ]; then
-  echo "\n\nCONFIGURE ERROR $error_code , config.log:"
-  cat config.log
-  exit $error_code
+    $platform_args
+CONFIGURE_RC=$?
+if [ $CONFIGURE_RC -ne 0 ]; then
+  echo ""
+  echo "=== CONFIGURE FAILED (rc=$CONFIGURE_RC) ==="
+  echo "=== config.log tail 300 ==="
+  tail -300 config.log
+  exit $CONFIGURE_RC
 fi
+set -e
 
 jobs=4
 
@@ -82,9 +86,11 @@ if [ "$BUILD_IOS" == "1" ]; then
 fi
 
 cd build/${JVM_PLATFORM}-${TARGET_JDK}-${JVM_VARIANTS}-${JDK_DEBUG_LEVEL}
-make JOBS=$jobs images || \
-error_code=$?
-if [ "$error_code" -ne 0 ]; then
-  echo "Build failure, exited with code $error_code. Trying again."
+set +e
+make JOBS=$jobs images
+MAKE_RC=$?
+set -e
+if [ $MAKE_RC -ne 0 ]; then
+  echo "=== MAKE FAILED (rc=$MAKE_RC), retry with ENABLE_XOM=false ==="
   make ENABLE_XOM=false JOBS=$jobs images
 fi
