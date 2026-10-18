@@ -109,6 +109,11 @@ jobs:
           awk '/void os::Posix::print_uptime_info/,/^}/' src/hotspot/os/posix/os_posix.cpp | head -20
           
           echo ""
+          echo "=== 强制关闭 X11 检测（OPENJDK_TARGET_OS=linux != android）==="
+          sed -i 's/NEEDS_LIB_X11=true/NEEDS_LIB_X11=false/' make/autoconf/libraries.m4
+          grep -n "NEEDS_LIB_X11" make/autoconf/libraries.m4
+          
+          echo ""
           echo "=== 清掉 .rej ==="
           find . -name "*.rej" -delete
           echo "done"
