@@ -32,41 +32,18 @@ jobs:
             libelf-dev libfreetype6-dev libpng-dev libjpeg-dev libgif-dev \
             systemtap-sdt-dev
 
-      - name: Download NDK
+      - name: Setup NDK r21e
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r21e
+          local-cache: true
+
+      - name: Expose ANDROID_NDK_ROOT
         run: |
-          set +e
-          URLS=(
-            "https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip"
-            "https://dl.google.com/android/repository/android-ndk-r21d-linux-x86_64.zip"
-            "https://mirrors.cloud.tencent.com/AndroidSDK/android-ndk-r21e-linux-x86_64.zip"
-          )
-          DOWNLOADED=""
-          for url in "${URLS[@]}"; do
-            for attempt in 1 2 3; do
-              echo ">>> Try $url (attempt $attempt)"
-              rm -f ndk.zip
-              if wget -q --timeout=60 --tries=1 "$url" -O ndk.zip 2>&1; then
-                SZ=$(stat -c %s ndk.zip 2>/dev/null || echo 0)
-                if [ "$SZ" -gt 500000000 ]; then
-                  DOWNLOADED="$url"
-                  echo ">>> OK: $url ($SZ bytes)"
-                  break 2
-                else
-                  echo ">>> Too small: $SZ bytes, retry"
-                fi
-              else
-                echo ">>> wget failed, retry"
-              fi
-              sleep 5
-            done
-          done
-          set -e
-          if [ -z "$DOWNLOADED" ]; then echo "!!! All URLs failed"; exit 1; fi
-          unzip -q ndk.zip
-          NDK_DIR=$(ls -d android-ndk-r21* | head -1)
-          echo "ANDROID_NDK_ROOT=$PWD/$NDK_DIR" >> $GITHUB_ENV
-          echo ">>> NDK_DIR=$NDK_DIR"
-          ls $PWD/$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+          echo "ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
+          echo ">>> NDK path: ${{ steps.setup-ndk.outputs.ndk-path }}"
+          ls "${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
 
       - name: Download freetype + cups
         run: |
