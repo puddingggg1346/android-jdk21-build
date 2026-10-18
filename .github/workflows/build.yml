@@ -133,6 +133,18 @@ jobs:
           $CC -shared -o build_android-arm64/lib/libfreetype.so objs/*.o -Wl,--allow-shlib-undefined
           ls -la build_android-arm64/lib/
 
+      - name: Prepare fontconfig/X11 headers
+        run: |
+          NDK_INC=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
+          echo "=== NDK_INC=$NDK_INC ==="
+          ls -d "$NDK_INC"
+          ln -sf /usr/include/X11 "$NDK_INC/X11"
+          ln -sf /usr/include/fontconfig "$NDK_INC/fontconfig"
+          echo "=== verify ==="
+          ls "$NDK_INC/fontconfig/fontconfig.h" || { echo "fontconfig.h missing"; exit 1; }
+          ls "$NDK_INC/X11/Xlib.h" || { echo "X11 Xlib.h missing"; exit 1; }
+          echo "OK"
+
       - name: Build JDK
         run: |
           export TARGET=aarch64-linux-android TARGET_JDK=aarch64

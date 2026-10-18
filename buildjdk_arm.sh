@@ -25,6 +25,13 @@ fi
 
 : # [CI] patch already applied in workflow step
 
+if [ "$BUILD_IOS" != "1" ]; then
+  chmod +x android-wrapped-clang
+  chmod +x android-wrapped-clang++
+  ln -s -f /usr/include/X11 $ANDROID_INCLUDE/
+  ln -s -f /usr/include/fontconfig $ANDROID_INCLUDE/
+fi
+
 # fix building libjawt
 ln -s -f $CUPS_DIR/cups $ANDROID_INCLUDE/
 
