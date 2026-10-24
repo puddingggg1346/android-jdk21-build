@@ -96,23 +96,43 @@ int getgrnam_r(const char* name, struct group* grp, char* buf, size_t buflen, st
 PY
 
 # ---- 3b. libnet: bionic needs <netinet/in.h> for sockaddr_in ----
+# 关键：原 Android patch 在文件开头加了 forward declaration 'struct sockaddr_in;'
+# 我们的 include 必须插到 header guard 之后、所有内容之前
 for F2 in $JDK/src/java.base/unix/native/libnet/net_util_md.h \
           $JDK/src/java.base/unix/native/libnet/net_util_md.c; do
   python3 - "$F2" << 'PY2'
-import sys
+import sys, re
 f = sys.argv[1]
 s = open(f).read()
 if '__ANDROID_NETINET__' in s:
     print(f + ": already")
     sys.exit(0)
-ins = "#if defined(__ANDROID__) || defined(ANDROID)\n/* __ANDROID_NETINET__ */\n#include <netinet/in.h>\n#include <sys/socket.h>\n#endif\n"
-# 插到第一个 #include 之前
-idx = s.find("#include")
-if idx < 0:
-    print(f + ": no include"); sys.exit(1)
-s = s[:idx] + ins + s[idx:]
-open(f, "w").write(s)
-print(f + ": netinet inserted")
+
+ins = """
+#if defined(__ANDROID__) || defined(ANDROID)
+/* __ANDROID_NETINET__ */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
+"""
+
+# 定位 header guard 之后（#ifndef ... \n#define ... \n）
+m = re.search(r'#ifndef[^\n]*\n#define[^\n]*\n', s)
+if m:
+    pos = m.end()
+else:
+    pos = 0
+
+# 跳过多余空行
+while pos < len(s) and s[pos] in ' \t\r\n':
+    pos += 1
+
+s = s[:pos] + ins + s[pos:]
+open(f, 'w').write(s)
+print(f + ": netinet inserted at pos %d" % pos)
+print("=== first 15 lines ===")
+for i, line in enumerate(s.split('\n')[:15], 1):
+    print("%3d %s" % (i, line))
 PY2
 done
 
