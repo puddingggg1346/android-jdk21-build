@@ -70,8 +70,8 @@ python3 - "$F" << 'PY'
 import sys
 f = sys.argv[1]
 s = open(f).read()
-if '__ANDROID_GETGR__' in s:
-    print("dispatch: already")
+if '__ANDROID_GETGR__' in s or 'int getgrgid_r' in s:
+    print("dispatch: upstream patch already provides getgrgid_r, skip")
 else:
     ins = '''
 // __ANDROID_GETGR__
