@@ -95,6 +95,27 @@ int getgrnam_r(const char* name, struct group* grp, char* buf, size_t buflen, st
     print("dispatch: patched")
 PY
 
+# ---- 3b. libnet: bionic needs <netinet/in.h> for sockaddr_in ----
+for F2 in $JDK/src/java.base/unix/native/libnet/net_util_md.h \
+          $JDK/src/java.base/unix/native/libnet/net_util_md.c; do
+  python3 - "$F2" << 'PY2'
+import sys
+f = sys.argv[1]
+s = open(f).read()
+if '__ANDROID_NETINET__' in s:
+    print(f + ": already")
+    sys.exit(0)
+ins = "#if defined(__ANDROID__) || defined(ANDROID)\n/* __ANDROID_NETINET__ */\n#include <netinet/in.h>\n#include <sys/socket.h>\n#endif\n"
+# 插到第一个 #include 之前
+idx = s.find("#include")
+if idx < 0:
+    print(f + ": no include"); sys.exit(1)
+s = s[:idx] + ins + s[idx:]
+open(f, "w").write(s)
+print(f + ": netinet inserted")
+PY2
+done
+
 # ---- 4. configure ----
 sed -i '/if test -z "${this_script_dir}"; then/,/^fi$/d' $JDK/configure || true
 
