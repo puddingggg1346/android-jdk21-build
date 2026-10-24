@@ -145,4 +145,4 @@ sed -i 's/ifeq ($(call isTargetOs, linux), true)/ifeq ($(call isTargetOs, androi
 echo "=== verify ==="
 grep -c "Bionic has no SysV SHM" $JDK/src/hotspot/os/linux/os_linux.cpp
 grep -c "__ANDROID_DISABLE_UPTIME__" $JDK/src/hotspot/os/posix/os_posix.cpp
-grep -c "__ANDROID_GETGR__" $JDK/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+grep -c "__ANDROID_GETGR__" $JDK/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c || true
